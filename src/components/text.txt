@@ -1,0 +1,246 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { db, storage } from '../firebase/config';
+import { doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
+
+const Profile = ({ setMentorPreferences }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    dob: '',
+    gender: '',
+    phone: '',
+    email: '',
+    address: '',
+    profilePicture: '',
+    mentorGender: '',
+    category: '',
+    mentorCategory: '',
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const categories = [
+    'Artificial Intelligence',
+    'Data Science',
+    'Web Development',
+    'Cybersecurity',
+    'Machine Learning',
+    'Blockchain',
+    'DevOps',
+    'Database Management',
+    'Cloud Computing',
+    'Computer Vision',
+  ];
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevState) => ({
+      ...prevState,
+      [name]: value,
+    }));
+  };
+
+  const uploadFile = async (file) => {
+    const fileRef = ref(storage, `profile_pictures/${uuidv4()}-${file.name}`);
+    await uploadBytes(fileRef, file);
+    const downloadURL = await getDownloadURL(fileRef);
+    return downloadURL;
+  };
+
+  const handleFileChange = async (e) => {
+    const { name, files } = e.target;
+    if (files && files[0]) {
+      setIsLoading(true);
+      try {
+        const fileUrl = await uploadFile(files[0]);
+        setFormData((prevState) => ({
+          ...prevState,
+          [name]: fileUrl,
+        }));
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        setError('File upload failed. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // Save user data to Firestore
+      await setDoc(doc(db, 'users', formData.email), {
+        ...formData,
+        createdAt: new Date(),
+      });
+
+      setMentorPreferences(formData); // Pass data to parent component
+      navigate('/Dashboard'); // Redirect to dashboard
+    } catch (error) {
+      console.error('Error saving user data:', error);
+      setError('Error saving user data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex justify-center items-center h-screen mt-10 mb-28 bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Personal Info Form */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center text-teal-500 mb-6">Personal Information</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="dob" className="block text-sm font-semibold text-gray-700">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                id="dob"
+                name="dob"
+                value={formData.dob}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="gender" className="block text-sm font-semibold text-gray-700">
+                Gender
+              </label>
+              <select
+                id="gender"
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="profilePicture" className="block text-sm font-semibold text-gray-700">
+                Profile Picture
+              </label>
+              <input
+                type="file"
+                id="profilePicture"
+                name="profilePicture"
+                onChange={handleFileChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                disabled={isLoading}
+              />
+              {isLoading && <p className="text-teal-500">Uploading...</p>}
+            </div>
+
+            <div>
+              <label htmlFor="category" className="block text-sm font-semibold text-gray-700">
+                Category
+              </label>
+              <select
+                id="category"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">Select Category</option>
+                {categories.map((category, index) => (
+                  <option key={index} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </form>
+        </div>
+
+        {/* Mentor Info Form */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center text-teal-500 mb-6">Mentor Information</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="mentorGender" className="block text-sm font-semibold text-gray-700">
+                Mentor Gender
+              </label>
+              <select
+                id="mentorGender"
+                name="mentorGender"
+                value={formData.mentorGender}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="mentorCategory" className="block text-sm font-semibold text-gray-700">
+                Mentor Category
+              </label>
+              <select
+                id="mentorCategory"
+                name="mentorCategory"
+                value={formData.mentorCategory}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">Select Category</option>
+                {categories.map((category, index) => (
+                  <option key={index} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2 px-4 text-white bg-teal-500 rounded-full hover:bg-teal-600 transition-all duration-300"
+              disabled={isLoading}
+            >
+              Submit
+            </button>
+            {error && <p className="text-red-500 mt-2">{error}</p>}
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Profile;
+
+
+
